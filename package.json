@@ -1,0 +1,26 @@
+{
+  "name": "foodbotdemo",
+  "version": "1.0.0",
+  "description": "美食机器人测试样例",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piekey1994/foodbotdemo.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/piekey1994/foodbotdemo/issues"
+  },
+  "homepage": "https://github.com/piekey1994/foodbotdemo#readme",
+  "dependencies": {
+    "botbuilder": "^3.6.0",
+    "dotenv-extended": "^1.0.4",
+    "node-uuid": "^1.4.7",
+    "request": "^2.79.0",
+    "restify": "^4.3.0"
+  }
+}
