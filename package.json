@@ -17,10 +17,12 @@
   },
   "homepage": "https://github.com/piekey1994/foodbotdemo#readme",
   "dependencies": {
+    "bluebird": "^3.5.0",
     "botbuilder": "^3.6.0",
     "dotenv-extended": "^1.0.4",
     "node-uuid": "^1.4.7",
     "request": "^2.79.0",
-    "restify": "^4.3.0"
+    "restify": "^4.3.0",
+    "sqlite3": "^3.1.8"
   }
 }
