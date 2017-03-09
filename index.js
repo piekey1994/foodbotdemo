@@ -6,9 +6,15 @@ var restify = require('restify');
 var tuling=require('./tuling.js');
 var user=require('./user.js');
 var menu=require('./menu.js');
+var fs = require('fs');
 
-var server = restify.createServer();
-server.listen(process.env.port || process.env.PORT || 3978, function () {
+var https_options = {
+  key: fs.readFileSync('private.pem'),
+  certificate: fs.readFileSync('file.crt')
+};
+
+var server = restify.createServer(https_options);
+server.listen(443, function () {
     console.log('%s listening to %s', server.name, server.url);
 });
 
