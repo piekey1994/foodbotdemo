@@ -1,3 +1,5 @@
+//闲聊模块
+
 var request=require('request');
 var Promise = require('bluebird');
 

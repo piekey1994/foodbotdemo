@@ -7,6 +7,7 @@ var tuling=require('./tuling.js');
 var user=require('./user.js');
 var menu=require('./menu.js');
 var fs = require('fs');
+var bsnlp=require('./bsnlp.js');
 
 var https_options={};
 if(process.env.HTTPS==true)
@@ -74,12 +75,39 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
                 .then((foods) => {
                     // args
                     session.send('我找到了%d个有关%s的菜谱:', foods.length,foodname);
-
-                    var message = new builder.Message()
+                    if(foods.length>0)
+                    {
+                        var message = new builder.Message()
                         .attachmentLayout(builder.AttachmentLayout.carousel)
                         .attachments(foods.map(menusAttachment));
 
-                    session.send(message);
+                        session.send(message);
+                    }
+                    else
+                    {
+                        session.send("因为找到的菜谱数量为0，正在为您寻找其他类似的菜谱：");
+                        bsnlp.getkeywords(foodname)
+                        .then(
+                            (words)=>{
+                                return menu.findToList(words);
+                            }
+                        )
+                        .then(
+                            (menus)=>
+                            {
+                                session.send('如下%d个可能类似的菜谱:', menus.length);
+                                var message = new builder.Message()
+                                    .attachmentLayout(builder.AttachmentLayout.carousel)
+                                    .attachments(menus.map(menusAttachment));
+
+                                session.send(message);
+                            }
+                        )
+                        .catch((error) => {
+                            console.error(error);
+                            session.send(error);
+                        });
+                    }
                     //session.endDialog();
                 }).catch((error) => {
                     console.error(error);

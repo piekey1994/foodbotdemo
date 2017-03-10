@@ -1,3 +1,5 @@
+//用户注册登录
+
 var sqlite3 = require('sqlite3').verbose();  
 var db = new sqlite3.Database('test.db');
 var Promise = require('bluebird');
