@@ -8,13 +8,17 @@ var user=require('./user.js');
 var menu=require('./menu.js');
 var fs = require('fs');
 
-var https_options = {
-  key: fs.readFileSync('private.pem'),
-  certificate: fs.readFileSync('file.crt')
-};
+var https_options={};
+if(process.env.HTTPS==true)
+{
+    https_options = {
+        key: fs.readFileSync('private.key'),
+        certificate: fs.readFileSync('certificate.crt')
+    };
+}
 
 var server = restify.createServer(https_options);
-server.listen(443, function () {
+server.listen(process.env.PORT, function () {
     console.log('%s listening to %s', server.name, server.url);
 });
 
