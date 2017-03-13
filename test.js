@@ -1,20 +1,7 @@
 require('dotenv-extended').load();
-var menu=require('./menu.js');
-var bsnlp=require('./bsnlp.js');
+var tjs=require('./translation-service.js');
 
-foodname="蚂蚁下树";
-bsnlp.getkeywords(foodname)
-.then(
-    (words)=>{
-        return menu.findToList(words);
-    }
-)
-.then(
-    (menus)=>
-    {
-        console.log(menus);
-    }
-)
-.catch((error) => {
-    console.error(error);
-});
+foodname="an apple";
+tjs.translationByGoogle(foodname)
+.then(result => console.log(result))
+.catch(err=>console.error(err));
