@@ -10,16 +10,18 @@ var fs = require('fs');
 var bsnlp=require('./bsnlp.js');
 
 var https_options={};
+var port = 3978;
 if(process.env.HTTPS==true)
 {
     https_options = {
         key: fs.readFileSync('private.key'),
         certificate: fs.readFileSync('certificate.crt')
     };
+    port=443;
 }
 
 var server = restify.createServer(https_options);
-server.listen(process.env.PORT, function () {
+server.listen(port, function () {
     console.log('%s listening to %s', server.name, server.url);
 });
 
