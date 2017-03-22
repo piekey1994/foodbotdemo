@@ -14,6 +14,7 @@ var url = require('url');
 var validUrl = require('valid-url');
 
 var tjs=require('./translation-service.js');
+var scoredb=require('./score.js');
 
 var https_options={};
 if(process.env.HTTPS==true)
@@ -70,7 +71,11 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
         },
         function (session, results) {
             var foodname = results.response;
-
+            if(!checkFoodName(foodname))
+            {
+                session.send("食用"+foodname+"是违法行为，请遵循相关法律规定，拒绝食用保护动物。");
+                return;
+            }
             //var message = '查询菜谱:';
 
             //session.send(message+foodname);
@@ -125,6 +130,24 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
     ])
     .matches('菜谱推荐', (session, args) => {
         session.send("功能未实现");
+    })
+    .matches('退出登录',(session, args) => {
+        session.userData.profile=undefined;
+        session.send("您的账号退出成功，欢迎下次再找我玩。");
+        session.endDialog();
+        session.beginDialog('/');
+    })
+    .matches('打分',(session, args) => {
+        var resArray=session.message.text.split(' ');
+        var score=Number(resArray[1]);
+        var fid=resArray[3];
+        var id=Number(session.userData.profile.id);
+        scoredb.setScore(id,fid,score)
+        .then(s=>{session.send("记录成功");})
+        .catch((error) => {
+                console.error(error);
+                session.send(error);
+            });  
     })
     .onDefault((session) => {
         if (hasImageAttachment(session)) {
@@ -235,6 +258,18 @@ bot.dialog('/sign', [
         }
 ]);
 
+
+//检测非法词汇
+function checkFoodName(foodname){
+    dangerword=['熊掌','猴脑','熊胆','穿山甲'];
+    for(i=0;i<dangerword.length;i++)
+    {
+        if(foodname.indexOf(dangerword[i])>0) return false;
+    }
+    return true;
+
+}
+
 // 菜单卡片
 function menusAttachment(food) {
     return new builder.HeroCard()
@@ -245,9 +280,19 @@ function menusAttachment(food) {
             new builder.CardAction()
                 .title('详细步骤')
                 .type('openUrl')
-                .value(food.href)
+                .value(food.href),
+            new builder.CardAction()
+                .title('喜欢')
+                .type('postBack')
+                .value("分数 3 编号 "+food.id),
+            new builder.CardAction()
+                .title('讨厌')
+                .type('postBack')
+                .value("分数 1 编号 "+food.id)
         ]);
 }
+
+
 
 //=========================================================
 // 图像语义识别
@@ -315,3 +360,5 @@ const handleErrorResponse = (session, error) => {
     session.send("图片识别服务出错");
     console.error(error);
 }
+
+
