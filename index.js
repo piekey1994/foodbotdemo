@@ -272,7 +272,7 @@ function checkFoodName(foodname){
 
 // 菜单卡片
 function menusAttachment(food) {
-    return new builder.HeroCard()
+    var card= new builder.ThumbnailCard()
         .title(food.name)
         .subtitle('时间：%s 工艺：%s 口味：%s', food.usetime, food.technology, food.taste)
         .images([new builder.CardImage().url(food.img)])
@@ -294,6 +294,11 @@ function menusAttachment(food) {
                 .type('postBack')
                 .value("分数 1 编号 "+food.id)
         ]);
+    if(food.result!=undefined)
+    {
+        card.text("推荐理由："+food.result);
+    }
+    return card;
 }
 
 

@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/piekey1994/foodbotdemo#readme",
   "dependencies": {
+    "async": "^2.1.5",
     "bluebird": "^3.5.0",
     "bosonnlp": "0.0.9",
     "botbuilder": "^3.6.0",
