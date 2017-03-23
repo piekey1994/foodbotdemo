@@ -130,7 +130,37 @@ exports.getRecommendedItems=(uid)=>{
             findOther(uid)
             .then((uids)=>{return createDict(uids)})
             .then((dict)=>{
-
+                person=String(uid);
+                totals=new Object();
+                simSums=new Object();
+                for(var other in dict)
+                {
+                    if(other==person) continue;
+                    sim=sim_pearson(dict,person,other)
+                    if(sim<=0) continue;
+                    for(var item in dict[other])
+                    {
+                        if(!(item in dict[person]))
+                        {
+                            totals[item]=0;
+                            totals[item] += sim * dict[other][item];
+                            simSums[item]=0;
+                            simSums[item] += sim;
+                        }
+                    }
+                }
+                rankings = [];
+                for (var item in totals)
+                {
+                    newItem=new Object();
+                    newItem['id']=Number(item);
+                    newItem['score']=totals[item];
+                    newItem['result']='和你口味相同的用户也喜欢吃，皮尔逊距离为'+newItem['score'];
+                    rankings.push(newItem);
+                }
+                rankings.sort(function(a,b){
+                    return a.score-b.score});
+                
             })
             .catch((error) => {
                 reject(error);
