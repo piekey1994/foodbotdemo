@@ -1,21 +1,21 @@
-require('dotenv-extended').load();
+require('dotenv-extended').load();//环境变量文件.env载入
 
-var builder = require('botbuilder');
-var restify = require('restify');
+var builder = require('botbuilder');//微软聊天机器人框架
+var restify = require('restify');//restful服务器模块
+var fs = require('fs');//文件处理模块
+var needle = require("needle");//轻量级的http client模块
+var url = require('url');//url转义
+var validUrl = require('valid-url');//url验证
 
-var tuling=require('./tuling.js');
-var user=require('./user.js');
-var menu=require('./menu.js');
-var fs = require('fs');
-var bsnlp=require('./bsnlp.js');
-var captionService = require('./caption-service');
-var needle = require("needle");
-var url = require('url');
-var validUrl = require('valid-url');
+var tuling=require('./tuling.js');//图灵机器人api
+var userModel=require('./user.js');//用户model
+var foodModel=require('./menu.js');//菜单model
+var bsnlp=require('./bsnlp.js');//柏森的自然语言处理api
+var captionService = require('./caption-service');//微软的图像认知api
+var tjs=require('./translation-service.js');//文本翻译api
+var scoreModel=require('./score.js');//分数mofel
 
-var tjs=require('./translation-service.js');
-var scoredb=require('./score.js');
-
+//如果服务器需要开启https则载入相关密钥
 var https_options={};
 if(process.env.HTTPS==true)
 {
@@ -25,22 +25,22 @@ if(process.env.HTTPS==true)
     };
 }
 
+//开启3978端口的restful服务
 var server = restify.createServer(https_options);
 server.listen(process.env.port || 3978, function () {
     console.log('%s listening to %s', server.name, server.url);
 });
 
-// Create chat bot
+//创建聊天机器人
 var connector = new builder.ChatConnector({
     appId: process.env.MICROSOFT_APP_ID,
     appPassword: process.env.MICROSOFT_APP_PASSWORD
 });
-
 var bot = new builder.UniversalBot(connector);
 server.post('/api/messages', connector.listen());
 
+//第一次连接该聊天机器人时自动的信息
 bot.on('conversationUpdate', function (activity) {
-    // when user joins conversation, send instructions
     if (activity.membersAdded) {
         activity.membersAdded.forEach(function (identity) {
             if (identity.id === activity.address.bot.id) {
@@ -54,15 +54,14 @@ bot.on('conversationUpdate', function (activity) {
 });
 
 
-
+//luis api引入
 const LuisModelUrl = process.env.LUIS_MODEL_URL;
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
+//luis解析过程
 var intents = new builder.IntentDialog({ recognizers: [recognizer] })
     .matches('查询菜谱', [
         function (session, args, next) {
-           
             var foodnameEntity = builder.EntityRecognizer.findEntity(args.entities, '菜名');
-
             if (foodnameEntity) {
                 next({ response: foodnameEntity.entity });
             } else {
@@ -71,48 +70,52 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
         },
         function (session, results) {
             var foodname = results.response;
+            //敏感词过滤
             if(!checkFoodName(foodname))
             {
                 session.send("食用"+foodname+"是违法行为，请遵循相关法律规定，拒绝食用保护动物。");
                 return;
             }
-            //var message = '查询菜谱:';
-
-            //session.send(message+foodname);
             session.send("查询菜谱中···");
-            // Async search
-            menu
+            //异步查询
+            foodModel
                 .find(foodname)
                 .then((foods) => {
-                    // args
-                    
                     if(foods.length>0)
                     {
                         session.send('我找到了%d个有关%s的菜谱:', foods.length,foodname);
+                        //将结果映射为卡片输出
                         var message = new builder.Message()
                         .attachmentLayout(builder.AttachmentLayout.carousel)
                         .attachments(foods.map(menusAttachment));
-
                         session.send(message);
                     }
                     else
                     {
                         session.send("因为找到的食谱数量过少，正在进行模糊查找···");
+                        //通过柏森api将foodname进行关键词分割并根据重要程度排序
                         bsnlp.getkeywords(foodname)
                         .then(
                             (words)=>{
-                                return menu.findToList(words);
+                                //异步获取相关的菜谱列表
+                                return foodModel.findToList(words);
                             }
                         )
                         .then(
                             (menus)=>
                             {
-                                session.send('找到如下%d个可能类似的菜谱:', menus.length);
-                                var message = new builder.Message()
-                                    .attachmentLayout(builder.AttachmentLayout.carousel)
-                                    .attachments(menus.map(menusAttachment));
-
-                                session.send(message);
+                                if(menus.length>0)
+                                {
+                                    session.send('找到如下%d个可能类似的菜谱:', menus.length);
+                                    var message = new builder.Message()
+                                        .attachmentLayout(builder.AttachmentLayout.carousel)
+                                        .attachments(menus.map(menusAttachment));
+                                    session.send(message);
+                                }
+                                else
+                                {
+                                    session.send("很抱歉，没找到任何相关菜谱");
+                                }
                             }
                         )
                         .catch((error) => {
@@ -120,7 +123,6 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
                             session.send(error);
                         });
                     }
-                    //session.endDialog();
                 }).catch((error) => {
                     console.error(error);
                     session.send(error);
@@ -142,22 +144,26 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
         var score=Number(resArray[1]);
         var fid=resArray[3];
         var id=Number(session.userData.profile.id);
-        scoredb.setScore(id,fid,score)
+        scoreModel.setScore(id,fid,score)
         .then(s=>{session.send("记录成功");})
         .catch((error) => {
                 console.error(error);
                 session.send(error);
             });  
     })
+    //如果匹配不到任何情境则进入闲聊模式
     .onDefault((session) => {
+        //如果用户提交的信息中含有图片
         if (hasImageAttachment(session)) {
             var stream = getImageStreamFromUrl(session.message.attachments[0]);
+            //通过微软的认知api获取图片意义
             captionService
                 .getCaptionFromStream(stream)
-                .then(caption => {return tjs.translation(caption);})
-                .then(caption => handleSuccessResponse(session, caption))
+                .then(caption => {return tjs.translation(caption);})//将图意翻译成中文
+                .then(caption => handleSuccessResponse(session, caption))//返回给用户
                 .catch(error => handleErrorResponse(session, error));
         }
+        //如果用户提交的时一个链接，则尝试从其中获取图片
         else if(imageUrl = (parseAnchorTag(session.message.text) || (validUrl.isUri(session.message.text)? session.message.text : null))) {
             captionService
                 .getCaptionFromUrl(imageUrl)
@@ -165,6 +171,7 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
                 .then(caption => handleSuccessResponse(session, caption))
                 .catch(error => handleErrorResponse(session, error));
         }
+        //否则调用图灵机器人api进行闲聊
         else {
             tuling.Talk(session.message.text,session.userData.profile.id)
             .then(text => {
@@ -178,42 +185,41 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
     });
 
 
-
+//默认聊天场景
 bot.dialog('/', [
         function (session) {
-            console.log(session.userData.profile);
+            //console.log(session.userData.profile);
+            //如果用户还没有登录的话
             if(session.userData.profile==undefined || session.userData.profile=={})
             {
+                //跳转到登录场景
                 session.beginDialog('/sign');                
             }
             else
             {
+                //跳转到luis场景
                 session.send("欢迎回来，%s。请讲",session.userData.profile.name);
                 session.beginDialog('/luis');
             }
                 
         },
         function (session, results) {
+            //登录成功后跳转到luis场景
             if(typeof(results.response)=="object")
             {
                 session.userData.profile = results.response;
                 session.send('你好 %s!很高兴见到你', session.userData.profile.name);
             }
-            session.beginDialog('/luis',results);
+            session.beginDialog('/luis');
 
         }
     ]);
-
+//luis聊天场景
 bot.dialog('/luis',intents);
-
+//登录场景
 bot.dialog('/sign', [
     function (session, args, next) {
             session.dialogData.profile = {};
-            // if (!args.profile.name) {
-            //     builder.Prompts.text(session, "你叫什么名字呀?");
-            // } else {
-            //     next();
-            // }
             builder.Prompts.text(session, "你叫什么名字呀?");
         },
         function (session, results, next) {
@@ -221,26 +227,20 @@ bot.dialog('/sign', [
                 session.dialogData.profile.name = results.response;
             }
             builder.Prompts.text(session, "你的密码是什么呀？如果你是第一次来会自动帮你注册的");
-            // if (!args.profile.password) {
-            //     builder.Prompts.text(session, "你的密码是什么呀？如果你是第一次来会自动帮你注册的");
-            // } else {
-            //     next();
-            // }
         },
         function (session, results) {
             if (results.response) {
                 session.dialogData.profile.password = results.response;
             }
-            //session.endDialogWithResult({ repsonse: session.dialogData.profile });
-            user.check(session.dialogData.profile.name,session.dialogData.profile.password)
+            userModel.check(session.dialogData.profile.name,session.dialogData.profile.password)
             .then(result=>{
                 if(result)
                 {
-                    return user.login(session.dialogData.profile.name,session.dialogData.profile.password);
+                    return userModel.login(session.dialogData.profile.name,session.dialogData.profile.password);
                 }
                 else
                 {
-                    return user.register(session.dialogData.profile.name,session.dialogData.profile.password)
+                    return userModel.register(session.dialogData.profile.name,session.dialogData.profile.password)
                 }
             })
             .then(
@@ -282,9 +282,13 @@ function menusAttachment(food) {
                 .type('openUrl')
                 .value(food.href),
             new builder.CardAction()
-                .title('喜欢')
+                .title('非常喜欢')
                 .type('postBack')
                 .value("分数 3 编号 "+food.id),
+            new builder.CardAction()
+                .title('还可以')
+                .type('postBack')
+                .value("分数 2 编号 "+food.id),
             new builder.CardAction()
                 .title('讨厌')
                 .type('postBack')
@@ -324,14 +328,9 @@ const isSkypeAttachment = attachment => {
     if (url.parse(attachment.contentUrl).hostname.substr(-"skype.com".length) == "skype.com") {
         return true;
     }
-
     return false;
 }
 
-/**
- * Gets the href value in an anchor element.
- * Skype transforms raw urls to html. Here we extract the href value from the url
- */
 const parseAnchorTag = input => {
     var match = input.match("^<a href=\"([^\"]*)\">[^<]*</a>$");
     if(match && match[1]) {
@@ -341,9 +340,6 @@ const parseAnchorTag = input => {
     return null;
 }
 
-//=========================================================
-// Response Handling
-//=========================================================
 const handleSuccessResponse = (session, caption) => {
     if (caption) {
         session.send("我觉得它是" + caption);
@@ -353,8 +349,6 @@ const handleSuccessResponse = (session, caption) => {
     }
 
 }
-
-
 
 const handleErrorResponse = (session, error) => {
     session.send("图片识别服务出错");
