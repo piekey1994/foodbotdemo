@@ -1,7 +1,9 @@
 require('dotenv-extended').load();
-var tjs=require('./translation-service.js');
+var cf=require('./userbasedCF.js');
+var foodModel=require('./menu.js');
 
-foodname="an apple";
-tjs.translationByGoogle(foodname)
-.then(result => console.log(result))
+uid=3;
+cf.getRecommendedItems(uid)
+.then(result => {return foodModel.findMoreFood(result);})
+.then(res => console.log(res))
 .catch(err=>console.error(err));

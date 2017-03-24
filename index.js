@@ -14,6 +14,7 @@ var bsnlp=require('./bsnlp.js');//柏森的自然语言处理api
 var captionService = require('./caption-service');//微软的图像认知api
 var tjs=require('./translation-service.js');//文本翻译api
 var scoreModel=require('./score.js');//分数mofel
+var cf=require('./userbasedCF');//协同过滤推荐模块
 
 //如果服务器需要开启https则载入相关密钥
 var https_options={};
@@ -131,7 +132,22 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
         }
     ])
     .matches('菜谱推荐', (session, args) => {
-        session.send("功能未实现");
+        session.send("正在为您推荐一些新鲜菜品...");
+        cf.getRecommendedItems(session.userData.profile.id)
+        .then(res=>{return foodModel.findMoreFood(res);})
+        .then(menus=>{
+            if(menus.length>0)
+            {
+                var message = new builder.Message()
+                    .attachmentLayout(builder.AttachmentLayout.carousel)
+                    .attachments(menus.map(menusAttachment));
+                session.send(message);
+            }
+            else
+            {
+                session.send("很抱歉，没找到什么适合您吃的菜，建议您多为一些菜品打分");
+            }
+        })
     })
     .matches('退出登录',(session, args) => {
         session.userData.profile=undefined;
@@ -264,7 +280,7 @@ function checkFoodName(foodname){
     dangerword=['熊掌','猴脑','熊胆','穿山甲'];
     for(i=0;i<dangerword.length;i++)
     {
-        if(foodname.indexOf(dangerword[i])>0) return false;
+        if(foodname.indexOf(dangerword[i])>=0) return false;
     }
     return true;
 

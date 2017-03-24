@@ -31,16 +31,16 @@ function createDict(uids)
             async.map(
                 uids,
                 function(item,callback){
-                    uid=item['uid'];
-                    db.all("select fid,score from score where uid=?",uid,function(err,res){  
+                    db.all("select fid,score from score where uid=?",item['uid'],function(err,res){  
                         if(!err) 
                         {
                             food2Score=new Object();
                             for(i=0;i<res.length;i++)
                             {
-                                food2Score[res[i][fid]]=res[i][score];
+                                food2Score[res[i]["fid"]]=res[i]["score"];
                             }
-                            callback(null,[String(uid),food2Score]);
+                            //console.log(String(uid),food2Score);
+                            callback(null,[String(item['uid']),food2Score]);
                         }                   
                         else  
                         {
@@ -49,16 +49,18 @@ function createDict(uids)
                     });
                 },
                 function(err,res){
-                    for(i=0;i<err.length;i++)
+                    if(err) reject(err);
+                    else
                     {
-                        if(err[i]) reject(err);
+                        dict=new Object();
+                        for(i=0;i<res.length;i++)
+                        {
+                            //console.log(res[i][0],res[i][1]);
+                            dict[res[i][0]]=res[i][1];
+                        }
+                        resolve(dict);
                     }
-                    dict=new Object();
-                    for(i=0;i<res.length;i++)
-                    {
-                        dict[res[i][0]]=res[i][1];
-                    }
-                    resolve(dict);
+                    
                 });
         });
 }
@@ -71,9 +73,9 @@ Array.prototype.sum = function (){
 };
 Array.prototype.pow = function(){
     newArray=[];
-    for(var item in this)
+    for(i=0;i<this.length;i++)
     {
-        newArray.push(Math.pow(item,2));
+        newArray.push(Math.pow(this[i],2));
     }
     return newArray;
 };
@@ -84,8 +86,10 @@ function sim_pearson(dict, p1, p2)
     si=[];
     for(var item in dict[p1]) 
     {
+        
         if(item in dict[p2])
         {
+            
             si.push(item);
         }
     }
@@ -94,31 +98,35 @@ function sim_pearson(dict, p1, p2)
 
     list1=[];
     list2=[];
-    for(var item in si)
+    for(i=0;i<si.length;i++)
     {
+        item=si[i];
+        //console.log('item',item);
         list1.push(dict[p1][item]);
         list2.push(dict[p2][item]);
     }
-
+    //console.log(list1,list2);
     sum1=list1.sum();
     sum2=list2.sum();
-
+    
     sum1Sq=list1.pow().sum();
     sum2Sq=list2.pow().sum();
 
     plist=[];
-    for(var item in si)
+    for(i=0;i<si.length;i++)
     {
+        item=si[i];
         plist.push(dict[p1][item]*dict[p2][item]);
     }
     pSum=plist.sum();
 
+    //console.log(sum1,sum2,sum1Sq,sum2Sq,pSum);
     num=pSum - (sum1*sum2/n);
     den = Math.sqrt((sum1Sq - Math.pow(sum1, 2)/n) * (sum2Sq - Math.pow(sum2, 2)/n));
     if(den==0) return 0;
 
     r=num/den;
-
+    //console.log(p1,p2,num,den);
     return r;
 
 }
@@ -130,6 +138,7 @@ exports.getRecommendedItems=(uid)=>{
             findOther(uid)
             .then((uids)=>{return createDict(uids)})
             .then((dict)=>{
+                console.log(dict);
                 person=String(uid);
                 totals=new Object();
                 simSums=new Object();
@@ -149,18 +158,19 @@ exports.getRecommendedItems=(uid)=>{
                         }
                     }
                 }
+                //console.log(totals);
                 rankings = [];
                 for (var item in totals)
                 {
                     newItem=new Object();
-                    newItem['id']=Number(item);
+                    newItem['id']=item;
                     newItem['score']=totals[item];
-                    newItem['result']='和你口味相同的用户也喜欢吃，皮尔逊距离为'+newItem['score'];
+                    newItem['result']='和你口味相似的用户也喜欢吃，该食物和你的皮尔逊距离为'+newItem['score'];
                     rankings.push(newItem);
                 }
                 rankings.sort(function(a,b){
-                    return a.score-b.score});
-                
+                    return b.score-a.score});
+                resolve(rankings.slice(0,10));
             })
             .catch((error) => {
                 reject(error);

@@ -3,6 +3,7 @@
 var sqlite3 = require('sqlite3').verbose();  
 var db = new sqlite3.Database('test.db');
 var Promise = require('bluebird');
+var async=require('async');
 
 exports.find=(foodname)=>{
     return new Promise(
@@ -17,6 +18,40 @@ exports.find=(foodname)=>{
                 });
         });
 };
+
+exports.findMoreFood=(foodlist)=>{
+    return new Promise(
+        (resolve,reject)=>{
+            async.map(
+                foodlist,
+                function(item,callback)
+                {
+                    db.all("select * from food where id = ?",item['id'],function(err,res){  
+                        if(!err) 
+                        {
+                            Object.assign(item,res[0]);
+                            callback(null,item);
+                        }                   
+                        else 
+                        {
+                            callback(err,null);  
+                        } 
+                           
+                    });
+                },
+                function(err,res)
+                {
+                    if(err) reject(err);
+                    else
+                    {
+                        res.sort(function(a,b){
+                            return b.score-a.score});
+                        resolve(res);
+                    }
+                }
+            );
+        });
+}
 
 exports.findToList=(keywords)=>{
     return new Promise(
