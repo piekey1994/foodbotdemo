@@ -42,7 +42,7 @@ exports.findMoreFood=(foodlist)=>{
                 function(err,res)
                 {
                     if(err) reject(err);
-                    else
+                    else 
                     {
                         res.sort(function(a,b){
                             return b.score-a.score});

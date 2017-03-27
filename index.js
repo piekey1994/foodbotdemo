@@ -14,7 +14,11 @@ var bsnlp=require('./bsnlp.js');//柏森的自然语言处理api
 var captionService = require('./caption-service');//微软的图像认知api
 var tjs=require('./translation-service.js');//文本翻译api
 var scoreModel=require('./score.js');//分数mofel
-var cf=require('./userbasedCF');//协同过滤推荐模块
+var recommendation=require('./recommendation.js');//协同过滤推荐模块
+var titleModel=require('./title.js');//分类模块
+
+titleModel.initTitle();
+
 
 //如果服务器需要开启https则载入相关密钥
 var https_options={};
@@ -25,6 +29,8 @@ if(process.env.HTTPS==true)
         certificate: fs.readFileSync('certificate.crt')
     };
 }
+
+
 
 //开启3978端口的restful服务
 var server = restify.createServer(https_options);
@@ -131,24 +137,68 @@ var intents = new builder.IntentDialog({ recognizers: [recognizer] })
         
         }
     ])
-    .matches('菜谱推荐', (session, args) => {
-        session.send("正在为您推荐一些新鲜菜品...");
-        cf.getRecommendedItems(session.userData.profile.id)
-        .then(res=>{return foodModel.findMoreFood(res);})
-        .then(menus=>{
-            if(menus.length>0)
+    .matches('菜谱推荐', [
+        function (session) {
+            builder.Prompts.choice(session,"我是擅长饮食健康的机器人，你需要特别定制的推荐吗",["人群膳食","疾病调理","功能性调理","脏腑调理","不需要"]);
+        },
+        function (session, results ){
+            require=results.response.entity;
+            if(require=="不需要")
             {
-                var message = new builder.Message()
-                    .attachmentLayout(builder.AttachmentLayout.carousel)
-                    .attachments(menus.map(menusAttachment));
-                session.send(message);
+                foods=[];
+                session.send("正在为您推荐一些新鲜菜品...");
+                recommendation.userbasedCF(session.userData.profile.id)
+                .then(res=>{return foodModel.findMoreFood(res);})
+                .then(menus=>{
+                    if(menus.length<10)
+                    {
+                        foods=menus;
+                        return recommendation.tastebased(session.userData.profile.id);
+                    }
+                }
+                )
+                .then(menus=>{
+                    if(menus)
+                    {
+                        foods=foods.concat(menus);
+                    }
+                    if(foods.length>0)
+                    {
+                        foods=foods.slice(0,10);
+                        var message = new builder.Message()
+                            .attachmentLayout(builder.AttachmentLayout.carousel)
+                            .attachments(foods.map(menusAttachment));
+                        session.send(message);
+                    }
+                    else
+                    {
+                        session.send("很抱歉，没找到什么适合您吃的菜，建议您多为一些菜品打分");
+                    }
+                    session.endDialog();
+                }).catch((error) => {
+                    console.error(error);
+                    session.send(error);
+                });
             }
             else
             {
-                session.send("很抱歉，没找到什么适合您吃的菜，建议您多为一些菜品打分");
+                builder.Prompts.choice(session,"你可以查询相关的饮食推荐",titleModel.title[require]);
             }
-        })
-    })
+        },
+        function (session, results ){
+            label=results.response.entity;
+            recommendation.labelbased(label,session.userData.profile.id)
+            .then(menus=>{
+                    var message = new builder.Message()
+                            .attachmentLayout(builder.AttachmentLayout.carousel)
+                            .attachments(menus.map(menusAttachment));
+                    session.send(message);
+            }).catch((error) => {
+                console.error(error);
+                session.send(error);
+            });
+        }
+    ])
     .matches('退出登录',(session, args) => {
         session.userData.profile=undefined;
         session.send("您的账号退出成功，欢迎下次再找我玩。");
