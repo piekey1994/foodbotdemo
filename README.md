@@ -1,5 +1,5 @@
 # Foodbot
-个性化美食推荐聊天机器人。使用微软BotFramework作为整体框架，使用LUIS作为意图分析，使用tuling API负责闲聊，美食对话部分用nodejs编写，支持菜谱检索，图片识别，菜谱推荐等功能。
+个性化美食推荐聊天机器人。使用微软BotFramework作为整体框架，使用LUIS作为意图分析，美食对话部分用nodejs编写，支持菜谱检索，图片识别，菜谱推荐等功能。
 
 在线版测试：https://webchat.botframework.com/embed/samples1234?s=LvcwTlVkJUM.cwA.FzY._yvW7TQR_uOFf1MTi8JuEwCUInnn-pa8AkiB1cVfXYI
 
