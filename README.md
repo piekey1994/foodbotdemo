@@ -5,6 +5,8 @@
 
 第一次使用可能会有延迟，需要多试几次
 
+[相关论文：链接: https://pan.baidu.com/s/19l24HmCtJHCM4uDkFIl2KQ 密码: wmyr]
+
 ## 演示截图
 - 登陆注册示意图
 ![登陆注册示意图](https://github.com/piekey1994/foodbotdemo/blob/master/pic/1.png)
